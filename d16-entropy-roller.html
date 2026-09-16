@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>D16 · Entropy Roller</title>
+<style>
+  :root{
+    --bg:#070b10; --bg2:#0a1018; --panel:#0d151f; --panel2:#101b28;
+    --edge:#16263a; --edge2:#213448;
+    --text:#c6d5e4; --muted:#6d8296; --faint:#3f5266;
+    --amber:#f4b13a; --amber-dim:#a9791f; --amber-glow:#ffcf6b;
+    --cyan:#34e2d0; --cyan-dim:#1c8f85;
+    --red:#ff5568; --red-dim:#a23140;
+    --sans:'Sarabun','Noto Sans Thai','Leelawadee UI',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #0f1c2a 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 110%, #0c1622 0%, transparent 55%),
+      var(--bg);
+    color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.35;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  .wrap{position:relative; z-index:1; max-width:960px; margin:0 auto; padding:18px 16px 40px; min-height:100%}
+  .topbar{display:flex; align-items:center; gap:12px; justify-content:space-between; margin-bottom:8px}
+  .brand{display:flex; align-items:baseline; gap:10px; min-width:0}
+  .brand .mark{font-family:var(--mono); font-weight:700; letter-spacing:.5px; color:var(--amber); font-size:15px; white-space:nowrap}
+  .brand .sub{color:var(--muted); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .badge{font-family:var(--mono); font-size:10.5px; color:var(--cyan); border:1px solid var(--cyan-dim);
+    padding:3px 7px; border-radius:999px; white-space:nowrap; display:flex; align-items:center; gap:5px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .stage{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px 8px 8px; user-select:none}
+  .die-shell{position:relative; width:min(64vw,260px); aspect-ratio:1/1; cursor:pointer; touch-action:manipulation}
+  .die-shell:focus-visible{outline:2px solid var(--cyan); outline-offset:12px; border-radius:20px}
+  .die-svg{position:absolute; inset:0; width:100%; height:100%; filter:drop-shadow(0 0 26px rgba(244,177,58,.28))}
+  .facet{fill:url(#gemFill); stroke:var(--amber-dim); stroke-width:1.1}
+  .facet.lo{fill:url(#gemFillLo)}
+  .rim{fill:none; stroke:var(--amber); stroke-width:1.6; opacity:.85}
+  .die-num{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:700; color:var(--amber-glow);
+    font-size:clamp(56px,20vw,110px); line-height:1;
+    text-shadow:0 0 18px rgba(255,207,107,.55), 0 0 3px rgba(255,207,107,.9);}
+  .die-shell.rolling .die-svg{animation:tumble .9s cubic-bezier(.2,.8,.2,1)}
+  .die-shell.rolling .die-num{animation:jitter .9s steps(2)}
+  @keyframes tumble{0%{transform:rotate(0) scale(1)}18%{transform:rotate(140deg) scale(1.06)}
+    42%{transform:rotate(280deg) scale(.96)}70%{transform:rotate(400deg) scale(1.03)}100%{transform:rotate(495deg) scale(1)}}
+  @keyframes jitter{0%,100%{opacity:1}50%{opacity:.6}}
+  .die-shell.settle .die-num{animation:pop .22s ease-out}
+  @keyframes pop{0%{transform:scale(.82)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+  .chips-wrap{margin-top:20px; text-align:center}
+  .chips-cap{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.4px; margin-bottom:9px}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  .chip{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:12.5px;
+    padding:8px 14px; border-radius:999px; cursor:pointer; user-select:none;
+    border:1px solid var(--edge2); color:var(--muted); background:var(--panel); transition:.18s}
+  .chip .cdot{width:8px;height:8px;border-radius:50%;background:var(--faint); transition:.2s}
+  .chip:hover{border-color:var(--cyan-dim)}
+  .chip.on{color:var(--cyan); border-color:var(--cyan-dim); background:rgba(52,226,208,.08)}
+  .chip.on .cdot{background:var(--cyan); box-shadow:0 0 9px var(--cyan)}
+  .chip.denied{color:var(--red); border-color:var(--red-dim)}
+  .chip.denied .cdot{background:var(--red); box-shadow:0 0 8px var(--red)}
+  .chip.na{opacity:.38; cursor:not-allowed}
+  .chip:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+  .rollbtn{margin-top:20px; font-family:var(--mono); font-size:15px; letter-spacing:.5px;
+    color:var(--bg); background:linear-gradient(180deg,var(--amber-glow),var(--amber));
+    border:none; padding:13px 30px; border-radius:12px; cursor:pointer; font-weight:700;
+    box-shadow:0 6px 24px rgba(244,177,58,.28), inset 0 1px 0 rgba(255,255,255,.35);}
+  .rollbtn:active{transform:translateY(1px)}
+  .rollbtn:focus-visible{outline:2px solid var(--cyan); outline-offset:3px}
+  .hint{margin-top:10px; color:var(--muted); font-size:12.5px; min-height:1.2em; text-align:center; padding:0 8px}
+  .log{margin-top:16px; display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:420px}
+  .log b{font-family:var(--mono); font-size:12px; color:var(--muted); font-weight:400;
+    border:1px solid var(--edge); padding:3px 7px; border-radius:6px; min-width:26px; text-align:center}
+  .log b.fresh{color:var(--amber); border-color:var(--amber-dim); box-shadow:0 0 10px rgba(244,177,58,.2)}
+  .drawer-toggle{display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
+    margin:26px 0 0; background:transparent; border:1px solid var(--edge); color:var(--muted);
+    font-family:var(--mono); font-size:12.5px; padding:10px; border-radius:10px; cursor:pointer}
+  .drawer-toggle:hover{border-color:var(--edge2); color:var(--text)}
+  .drawer-toggle .chev{transition:transform .25s ease}
+  .drawer-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .drawer{overflow:hidden; max-height:0; transition:max-height .35s ease}
+  .drawer.open{max-height:4200px}
+  .drawer-inner{padding-top:16px}
+  .sect-h{font-family:var(--mono); font-size:12px; color:var(--cyan); margin:18px 2px 9px; display:flex; align-items:center; gap:8px}
+  .sect-h::before{content:""; width:5px;height:5px;background:var(--cyan);border-radius:50%;box-shadow:0 0 7px var(--cyan)}
+  .sources{display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:10px}
+  .src{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--edge);
+    border-radius:12px; padding:12px 12px 11px; position:relative; overflow:hidden}
+  .src::after{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--faint)}
+  .src.on::after{background:var(--cyan); box-shadow:0 0 12px var(--cyan)}
+  .src.fault::after{background:var(--red); box-shadow:0 0 12px var(--red)}
+  .src-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:9px}
+  .src-name{font-size:13.5px; font-weight:600}
+  .src-name small{display:block; font-weight:400; color:var(--muted); font-size:11px}
+  .stat{font-family:var(--mono); font-size:10px; padding:3px 7px; border-radius:999px; white-space:nowrap; border:1px solid var(--faint); color:var(--muted)}
+  .stat.on{color:var(--cyan); border-color:var(--cyan-dim)}
+  .stat.fault{color:var(--red); border-color:var(--red-dim)}
+  .stat.na{color:var(--faint); border-color:var(--faint)}
+  .mixtag{display:inline-block; white-space:nowrap; vertical-align:1px; font-family:var(--mono); font-size:9px; color:var(--amber); border:1px solid var(--amber-dim);
+    padding:1px 6px; border-radius:999px; margin-right:6px}
+  .meter{margin:7px 0 3px}
+  .meter .lbl{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--muted); margin-bottom:3px}
+  .meter .lbl .v{color:var(--text)}
+  .bar{height:6px; background:#0a121b; border-radius:4px; overflow:hidden; border:1px solid var(--edge)}
+  .bar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--cyan-dim),var(--cyan)); transition:width .18s ease}
+  .bar.amber > i{background:linear-gradient(90deg,var(--amber-dim),var(--amber))}
+  .health{display:flex; gap:6px; margin-top:9px}
+  .lamp{flex:1; font-family:var(--mono); font-size:9.5px; text-align:center; padding:4px 2px; border-radius:6px; border:1px solid var(--edge); color:var(--muted); letter-spacing:.3px}
+  .lamp.pass{color:var(--cyan); border-color:var(--cyan-dim); background:rgba(52,226,208,.05)}
+  .lamp.fail{color:var(--red); border-color:var(--red-dim); background:rgba(255,85,104,.06)}
+  .src-act{margin-top:9px}
+  .act-btn{width:100%; font-family:var(--mono); font-size:11px; color:var(--text); background:var(--bg2); border:1px solid var(--edge2); padding:7px; border-radius:8px; cursor:pointer}
+  .act-btn:hover{border-color:var(--cyan-dim); color:var(--cyan)}
+  .act-btn.off{border-color:var(--amber-dim)} .act-btn.off:hover{color:var(--amber)}
+  .act-note{font-family:var(--mono); font-size:10px; color:var(--faint); text-align:center; margin-top:9px}
+  .selftest{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--edge); border-radius:12px; padding:13px 14px}
+  .selftest p{margin:0 0 10px; color:var(--muted); font-size:12.5px; line-height:1.6}
+  .st-row{display:flex; gap:8px; flex-wrap:wrap}
+  .st-row button{flex:1; min-width:120px; font-family:var(--mono); font-size:11.5px; color:var(--text); background:var(--bg2); border:1px solid var(--edge2); padding:9px; border-radius:8px; cursor:pointer}
+  .st-row button:hover{border-color:var(--amber-dim); color:var(--amber)}
+  .st-read{margin-top:11px; font-family:var(--mono); font-size:12px; color:var(--muted); min-height:1.4em}
+  .st-read b{color:var(--amber)}
+  details.how{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--edge); border-radius:12px; padding:2px 15px; margin-top:2px}
+  details.how > summary{cursor:pointer; padding:12px 0; font-size:13.5px; color:var(--text); list-style:none; display:flex; align-items:center; gap:9px; font-weight:600}
+  details.how > summary::-webkit-details-marker{display:none}
+  details.how > summary .plus{font-family:var(--mono); color:var(--cyan); transition:transform .2s}
+  details.how[open] > summary .plus{transform:rotate(45deg)}
+  .how-body{padding:2px 0 15px; color:var(--muted); font-size:13px; line-height:1.72}
+  .how-body h4{color:var(--amber); font-size:12.5px; font-family:var(--mono); margin:15px 0 6px; font-weight:600}
+  .how-body code{font-family:var(--mono); font-size:12px; color:var(--cyan); background:#0a121b; padding:1px 6px; border-radius:5px; border:1px solid var(--edge)}
+  .how-body .flow{font-family:var(--mono); font-size:11.5px; color:var(--text); background:#080f16; border:1px solid var(--edge); border-radius:8px; padding:11px 12px; margin:8px 0; overflow-x:auto; white-space:pre}
+  .how-body ul{margin:6px 0; padding-left:18px} .how-body li{margin:4px 0}
+  .warn{border:1px solid var(--red-dim); background:rgba(255,85,104,.06); border-radius:10px; padding:11px 13px; margin-top:14px; color:var(--text); font-size:12.5px; line-height:1.65}
+  .warn b{color:var(--red)}
+  footer{margin-top:26px; text-align:center; color:var(--faint); font-size:11.5px; line-height:1.7; font-family:var(--mono)}
+  footer .dtv{color:var(--amber-dim)}
+  @media (max-width:560px){ .brand .sub{display:none} .sect-h{font-size:11.5px} }
+  @media (prefers-reduced-motion:reduce){
+    .die-shell.rolling .die-svg,.die-shell.rolling .die-num,.die-shell.settle .die-num{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">D16 · ENTROPY ROLLER</span>
+      <span class="sub">โยนลูกเต๋า 16 หน้า &nbsp;·&nbsp; sensor-fused randomness</span>
+    </div>
+    <span class="badge"><span class="dot"></span>OFFLINE</span>
+  </div>
+  <div class="stage">
+    <div class="die-shell" id="die" role="button" tabindex="0" aria-label="ทอยลูกเต๋า D16 (Roll)">
+      <svg class="die-svg" viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <linearGradient id="gemFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2a3a"/><stop offset="1" stop-color="#0c141d"/></linearGradient>
+          <linearGradient id="gemFillLo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14202d"/><stop offset="1" stop-color="#0a1017"/></linearGradient>
+        </defs>
+        <polygon class="facet" points="100,8 145,26 172,63 172,137 145,174 100,192 55,174 28,137 28,63 55,26"/>
+        <polygon class="facet lo" points="100,8 145,26 100,64 55,26"/>
+        <polygon class="facet lo" points="145,26 172,63 138,86 100,64"/>
+        <polygon class="facet lo" points="172,63 172,137 138,114 138,86"/>
+        <polygon class="facet lo" points="172,137 145,174 100,136 138,114"/>
+        <polygon class="facet lo" points="145,174 100,192 100,136"/>
+        <polygon class="facet lo" points="100,192 55,174 100,136"/>
+        <polygon class="facet lo" points="55,174 28,137 62,114 100,136"/>
+        <polygon class="facet lo" points="28,137 28,63 62,86 62,114"/>
+        <polygon class="facet lo" points="28,63 55,26 100,64 62,86"/>
+        <polygon class="rim" points="100,8 145,26 172,63 172,137 145,174 100,192 55,174 28,137 28,63 55,26"/>
+      </svg>
+      <div class="die-num" id="dieNum">·</div>
+    </div>
+    <div class="chips-wrap">
+      <div class="chips-cap">สัญญาณที่ใช้ · entropy in use</div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <button class="rollbtn" id="rollBtn">ROLL &nbsp;/&nbsp; ทอย</button>
+    <div class="hint" id="hint">ติ๊กเลือกสัญญาณ แล้วแตะลูกเต๋า/กดปุ่ม — บนมือถือ “เขย่า” เพื่อทอยได้</div>
+    <div class="log" id="log" aria-label="ประวัติการทอยล่าสุด"></div>
+  </div>
+  <button class="drawer-toggle" id="drawerToggle" aria-expanded="false" aria-controls="drawer">
+    <span>ระบบเบื้องหลัง / SYSTEMS &amp; DIAGNOSTICS</span><span class="chev">▾</span>
+  </button>
+  <div class="drawer" id="drawer">
+   <div class="drawer-inner">
+    <div class="sect-h">แหล่ง NOISE ของอุปกรณ์ / entropy sources</div>
+    <div class="sources" id="sources"></div>
+    <div class="sect-h">PERTURBATION SELF-TEST / ทดสอบว่า sensor ตอบสนองจริง</div>
+    <div class="selftest">
+      <p>Indicator ยืนยันได้แค่ว่า source “ตายหรือเปล่า” — ยืนยัน “เป็น physical จริง” ไม่ได้
+         วิธีที่แข็งสุดคือ <b style="color:var(--amber)">คุณ perturb ฟิสิกส์เอง</b> แล้วดูว่า ACTIVITY ตอบสนองตรงมั้ย (oracle อยู่นอกเครื่อง)</p>
+      <div class="st-row">
+        <button data-st="camera">ปิดเลนส์ → ACTIVITY ควรตก</button>
+        <button data-st="mic">ทำเสียงใกล้ไมค์ → ควรพุ่ง</button>
+        <button data-st="motion">เขย่าเครื่อง → ควรพุ่ง</button>
+      </div>
+      <div class="st-read" id="stRead">เลือก source เพื่อเริ่มเฝ้าดูค่า real-time</div>
+    </div>
+    <div class="sect-h">กระบวนการทำงาน / HOW IT WORKS</div>
+    <details class="how">
+      <summary><span class="plus">+</span>เปิดคำอธิบายกลไก (สำหรับผู้สนใจ)</summary>
+      <div class="how-body">
+        <p>เครื่องมือนี้ <b style="color:var(--text)">จำลองการทอย D16 เท่านั้น</b> — ไม่มีขั้นตอนสร้าง seed / กระเป๋าใด ๆ
+           ทุกครั้งที่ทอย ผล 0–F มาจากการ “กลั่น” (extract) เฉพาะแหล่งที่คุณ <b style="color:var(--cyan)">ติ๊กเลือก</b> ผ่าน hash แล้วตัด 4 บิตล่างแบบไม่มี bias</p>
+        <h4>1. แหล่ง entropy ที่เลือกได้</h4>
+        <ul>
+          <li><code>CSPRNG</code> — CSPRNG ของระบบ (baseline) สม่ำเสมอ ~100% แต่ verify กระบวนการเองไม่ได้</li>
+          <li><code>Cam</code> — thermal/shot noise ของ image sensor ผ่าน frame-diff LSB — physical noise แท้</li>
+          <li><code>Mic</code> — Johnson-Nyquist noise ของ ADC; ปิด noiseSuppression/AGC แล้วเก็บ LSB</li>
+          <li><code>Motion</code> — MEMS thermal + การเคลื่อนไหว ผ่าน DeviceMotion (มือถือ)</li>
+        </ul>
+        <p>ติ๊กเลือกแหล่งไหน = แหล่งนั้นถูกนำเข้ามิกซ์; เอาติ๊กออก = หยุดใช้และตัดออกจากมิกซ์ (กล้อง/ไมค์ปิดจริง) ต้องเปิดอย่างน้อย 1 แหล่ง</p>
+        <h4>2. Extractor (mixer)</h4>
+        <div class="flow">roll = SHA-256( selected_sources_pool ⊕ csprng? ‖ counter ‖ hi-res-time )
+value = roll[0] &amp; 0x0F        // 0–15 ไม่มี modulo bias (256 หาร 16 ลงตัว)
+pool  ⊕= roll                   // hash-chain</div>
+        <p>กฎที่ค้ำความปลอดภัย: ถ้ามีอย่างน้อย 1 แหล่งที่สุ่มจริงและอิสระ ผลรวมหลัง XOR/hash ก็ยัง uniform</p>
+        <h4>3. Indicator</h4>
+        <ul>
+          <li><b>Min-entropy (bits/byte)</b> — Most-Common-Value; ใกล้ 8 ยิ่งดี</li>
+          <li><b>RCT</b> — จับ source ค้าง/ตาย</li>
+          <li><b>APT</b> — จับ bias ในหน้าต่าง 512 sample</li>
+          <li><b>ACTIVITY</b> — ความแปรปรวนระยะสั้น (ใช้กับ self-test)</li>
+        </ul>
+        <div class="warn">
+          <b>ขอบเขตที่ซื่อสัตย์:</b> indicator ทั้งหมด <b>falsify ได้</b> แต่ <b>verify ไม่ได้</b>ว่า source เป็น physical แท้ต่อ deep backdoor
+          ⇒ เครื่องนี้คือ <b>simulator / educational</b> entropy สำหรับเงินจริง trust-anchor ยังคือ
+          <b style="color:var(--amber)">ลูกเต๋าจริงที่คุณเห็นตกกับตา</b> — software เป็นได้แค่ mixer ไม่ใช่ originator
+        </div>
+      </div>
+    </details>
+   </div>
+  </div>
+  <footer>
+    <div>© 2026 Chollatis Bitcoiner. &nbsp;|&nbsp; <span class="dtv">Don't Trust, Verify.</span> &nbsp;Powered by Claude AI</div>
+    <div>Simulator only · no seed generation · runs fully offline</div>
+  </footer>
+</div>
+<script>
+"use strict";
+const HEX="0123456789ABCDEF";
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const log2=(x)=>Math.log(x)/Math.LN2;
+class Source{
+  constructor(key,name,sub,mixable){
+    this.key=key; this.name=name; this.sub=sub; this.mixable=mixable;
+    this.userEnabled=false; this.state="na";
+    this.buf=new Uint8Array(2048); this.bi=0; this.filled=0;
+    this.lastByte=-1; this.runLen=0; this.rctFail=false; this.rctHold=0;
+    this.aptRef=-1; this.aptCount=0; this.aptPos=0; this.aptFail=false; this.aptHold=0;
+    this.hmin=0; this.activity=0; this.total=0;
+  }
+  push(b){
+    b&=0xFF;
+    this.buf[this.bi]=b; this.bi=(this.bi+1)%this.buf.length;
+    if(this.filled<this.buf.length) this.filled++; this.total++;
+    if(this.userEnabled && this.mixable){ ACC[ACI]^=b; ACI=(ACI+1)%ACC.length; }
+    if(b===this.lastByte){ this.runLen++; } else { this.lastByte=b; this.runLen=1; }
+    const cutoff=1+Math.ceil(20/Math.max(this.hmin,0.3));
+    if(this.runLen>=cutoff){ this.rctFail=true; this.rctHold=60; }
+    else if(this.rctHold>0){ this.rctHold--; if(this.rctHold===0) this.rctFail=false; }
+    if(this.aptPos===0){ this.aptRef=b; this.aptCount=1; }
+    else if(b===this.aptRef){ this.aptCount++; }
+    this.aptPos++;
+    if(this.aptPos>=512){
+      const p=Math.pow(2,-Math.max(this.hmin,0.3));
+      const mean=512*p, sd=Math.sqrt(512*p*(1-p));
+      const c=Math.max(2, Math.ceil(mean+4.76*sd));
+      if(this.aptCount>=c){ this.aptFail=true; this.aptHold=1; }
+      else if(this.aptHold>0){ this.aptHold--; if(this.aptHold===0) this.aptFail=false; }
+      this.aptPos=0;
+    }
+  }
+  recompute(){
+    const n=this.filled; if(n<16){ this.hmin=0; this.activity=0; return; }
+    const counts=new Uint16Array(256); let mx=0;
+    const w=Math.min(n,1024); let start=(this.bi-w+this.buf.length)%this.buf.length;
+    for(let i=0;i<w;i++){ const v=this.buf[(start+i)%this.buf.length]; const c=++counts[v]; if(c>mx)mx=c; }
+    this.hmin=clamp(-log2(mx/w),0,8);
+    const w2=Math.min(n,48); const seen=new Set(); start=(this.bi-w2+this.buf.length)%this.buf.length;
+    for(let i=0;i<w2;i++) seen.add(this.buf[(start+i)%this.buf.length]);
+    this.activity=seen.size/w2;
+  }
+}
+let ACC=new Uint8Array(32); let ACI=0;
+let POOL=new Uint8Array(32); crypto.getRandomValues(POOL);
+let ROLL_CTR=0;
+const SRC={
+  csprng:new Source("csprng","System CSPRNG","crypto.getRandomValues",true),
+  camera:new Source("camera","Camera","image-sensor noise · frame diff",true),
+  mic:new Source("mic","Microphone","ADC thermal noise · LSB",true),
+  motion:new Source("motion","Motion","accelerometer / MEMS",true),
+  input:new Source("input","Input timing","pointer / touch jitter (display)",false),
+};
+const MIXABLE=["csprng","camera","mic","motion"];
+const CHIP_DEFS=[["csprng","CSPRNG"],["camera","Cam"],["mic","Mic"],["motion","Motion"]];
+SRC.csprng.userEnabled=true; SRC.csprng.state="on";
+SRC.input.userEnabled=true; SRC.input.state="na";
+if(typeof DeviceMotionEvent==="undefined") SRC.motion.state="unsupported";
+setInterval(()=>{ if(!SRC.csprng.userEnabled) return;
+  const b=new Uint8Array(24); crypto.getRandomValues(b); for(const x of b) SRC.csprng.push(x);
+},120);
+let camStream=null,camVideo=null,camInterval=null,camPrev=null;
+async function enableCamera(){
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({video:{width:160,height:120}});
+    camStream=s; const v=document.createElement("video"); camVideo=v; v.srcObject=s; v.muted=true; v.playsInline=true; await v.play();
+    const cv=document.createElement("canvas"); cv.width=64; cv.height=48; const cx=cv.getContext("2d",{willReadFrequently:true});
+    camPrev=null;
+    camInterval=setInterval(()=>{ try{
+      cx.drawImage(v,0,0,cv.width,cv.height);
+      const d=cx.getImageData(0,0,cv.width,cv.height).data;
+      if(camPrev){ for(let i=0;i<d.length;i+=16){
+        const diff=((d[i]^camPrev[i])&0x0F)|(((d[i+1]^camPrev[i+1])&0x0F)<<4); SRC.camera.push(diff); } }
+      camPrev=d.slice(0);
+    }catch(e){} },70);
+    SRC.camera.state="on"; return true;
+  }catch(e){ SRC.camera.state="denied"; return false; }
+}
+function stopCamera(){
+  if(camInterval)clearInterval(camInterval); camInterval=null;
+  if(camStream){camStream.getTracks().forEach(t=>t.stop()); camStream=null;}
+  camVideo=null; camPrev=null; SRC.camera.state="na";
+}
+let micStream=null,micCtx=null,micInterval=null;
+async function enableMic(){
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:{noiseSuppression:false,echoCancellation:false,autoGainControl:false}});
+    micStream=s; const AC=window.AudioContext||window.webkitAudioContext; micCtx=new AC();
+    const src=micCtx.createMediaStreamSource(s); const an=micCtx.createAnalyser(); an.fftSize=2048; src.connect(an);
+    const buf=new Float32Array(an.fftSize);
+    micInterval=setInterval(()=>{ an.getFloatTimeDomainData(buf);
+      for(let i=0;i<buf.length;i+=8){ SRC.mic.push(Math.round(buf[i]*32768)&0xFF); } },80);
+    SRC.mic.state="on"; return true;
+  }catch(e){ SRC.mic.state="denied"; return false; }
+}
+function stopMic(){
+  if(micInterval)clearInterval(micInterval); micInterval=null;
+  if(micStream){micStream.getTracks().forEach(t=>t.stop()); micStream=null;}
+  if(micCtx){try{micCtx.close();}catch(e){} micCtx=null;}
+  SRC.mic.state="na";
+}
+let motionActive=false,motionGotEvent=false,lastMag=null,shakeCooldown=0;
+function motionHandler(ev){
+  if(!motionActive) return; motionGotEvent=true; SRC.motion.state="on";
+  const a=ev.accelerationIncludingGravity||ev.acceleration; if(!a) return;
+  const vals=[a.x,a.y,a.z]; const rr=ev.rotationRate; if(rr){vals.push(rr.alpha,rr.beta,rr.gamma);}
+  let mag=0;
+  for(const v of vals){ if(v==null) continue; SRC.motion.push(Math.round(v*1000)&0xFF); mag+=Math.abs(v); }
+  if(lastMag!=null){ const d=Math.abs(mag-lastMag);
+    if(d>14 && shakeCooldown<=0 && !rolling){ shakeCooldown=8; roll(); } }
+  lastMag=mag; if(shakeCooldown>0) shakeCooldown--;
+}
+async function enableMotion(){
+  try{
+    if(typeof DeviceMotionEvent==="undefined"){ SRC.motion.state="unsupported"; return false; }
+    if(typeof DeviceMotionEvent.requestPermission==="function"){
+      const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){ SRC.motion.state="denied"; return false; }
+    }
+    motionActive=true; motionGotEvent=false; lastMag=null;
+    window.addEventListener("devicemotion",motionHandler);
+    SRC.motion.state="on";
+    setTimeout(()=>{ if(motionActive && !motionGotEvent){
+      stopMotion(); SRC.motion.state="unsupported"; SRC.motion.userEnabled=false;
+      renderChips(); renderSources(); flashHint("อุปกรณ์นี้ไม่มี motion sensor / no motion sensor");
+    }},1700);
+    return true;
+  }catch(e){ SRC.motion.state="denied"; return false; }
+}
+function stopMotion(){ motionActive=false; window.removeEventListener("devicemotion",motionHandler); lastMag=null; SRC.motion.state="na"; }
+function feedInput(){
+  const t=performance.now(); const b1=Math.floor((t-Math.floor(t))*256)&0xFF; const b2=Math.floor(t)&0xFF;
+  SRC.input.push(b1^b2); if(SRC.input.state!=="on"){ SRC.input.state="on"; renderSources(); }
+}
+window.addEventListener("pointermove",feedInput,{passive:true});
+window.addEventListener("pointerdown",feedInput,{passive:true});
+window.addEventListener("keydown",feedInput);
+function mixCount(){ return MIXABLE.filter(k=>SRC[k].userEnabled && (k==="csprng"||SRC[k].state==="on")).length; }
+async function setSourceEnabled(key,want){
+  const s=SRC[key];
+  if(want){
+    if(key==="csprng"){ s.userEnabled=true; s.state="on"; }
+    else{
+      let ok=false;
+      if(key==="camera") ok=await enableCamera();
+      else if(key==="mic") ok=await enableMic();
+      else if(key==="motion") ok=await enableMotion();
+      s.userEnabled=ok;
+      if(!ok) flashHint(s.state==="denied"?(s.name+": ถูกปฏิเสธสิทธิ์ / permission denied"):(s.name+": ใช้ไม่ได้"));
+    }
+  }else{
+    const counts=mixCount(); const thisCounts=s.userEnabled && (key==="csprng"||s.state==="on");
+    if(thisCounts && counts<=1){ flashHint("ต้องเปิดอย่างน้อย 1 แหล่ง / keep ≥ 1 source"); renderChips(); return; }
+    s.userEnabled=false;
+    if(key==="camera") stopCamera(); else if(key==="mic") stopMic();
+    else if(key==="motion") stopMotion(); else if(key==="csprng") s.state="na";
+  }
+  renderChips(); renderSources();
+}
+function toggleSource(key){
+  const s=SRC[key];
+  if(s.state==="unsupported") return;
+  const on = s.userEnabled && (key==="csprng"||s.state==="on");
+  setSourceEnabled(key,!on);
+}
+const dieEl=document.getElementById("die"),dieNum=document.getElementById("dieNum");
+const rollBtn=document.getElementById("rollBtn"),hintEl=document.getElementById("hint"),logEl=document.getElementById("log");
+const DEFAULT_HINT=hintEl.textContent; let hintTimer=null;
+function flashHint(m){ hintEl.textContent=m; if(hintTimer)clearTimeout(hintTimer); hintTimer=setTimeout(()=>{hintEl.textContent=DEFAULT_HINT;},2800); }
+let rolling=false, history=[];
+async function deriveNibble(){
+  const csp=new Uint8Array(32); if(SRC.csprng.userEnabled) crypto.getRandomValues(csp);
+  const t=performance.now(); ROLL_CTR++;
+  const mat=new Uint8Array(32+32+4+8);
+  for(let i=0;i<32;i++) mat[i]=ACC[i]^POOL[i];
+  mat.set(csp,32);
+  new DataView(mat.buffer).setUint32(64,ROLL_CTR);
+  new DataView(mat.buffer).setFloat64(68,t);
+  let digest;
+  try{ digest=new Uint8Array(await crypto.subtle.digest("SHA-256",mat)); }
+  catch(e){ digest=new Uint8Array(32); for(let i=0;i<32;i++) digest[i]=(mat[i]^mat[(i*7+13)%mat.length]^(ROLL_CTR>>(i%24)))&0xFF; }
+  for(let i=0;i<32;i++){ POOL[i]^=digest[i]; ACC[i]^=digest[(i+7)%32]; }
+  return digest[0]&0x0F;
+}
+async function roll(){
+  if(rolling) return; rolling=true;
+  dieEl.classList.remove("settle"); dieEl.classList.add("rolling");
+  const on=MIXABLE.filter(k=>SRC[k].userEnabled&&(k==="csprng"||SRC[k].state==="on")).map(k=>k.toUpperCase());
+  hintEl.textContent="กลั่น entropy จาก: "+on.join(" ⊕ ");
+  const spinEnd=performance.now()+820;
+  const spin=()=>{ if(performance.now()<spinEnd){ dieNum.textContent=HEX[Math.floor(Math.random()*16)]; requestAnimationFrame(spin);} };
+  requestAnimationFrame(spin);
+  const value=await deriveNibble();
+  await new Promise(r=>setTimeout(r,840));
+  dieEl.classList.remove("rolling"); dieEl.classList.add("settle");
+  dieNum.textContent=HEX[value];
+  hintEl.textContent="ผล: "+HEX[value]+"  ("+value+"/15) — แตะอีกครั้งเพื่อทอยใหม่";
+  history.unshift(HEX[value]); if(history.length>12) history.pop(); renderLog();
+  rolling=false;
+}
+function renderLog(){ logEl.innerHTML=history.map((h,i)=>`<b class="${i===0?'fresh':''}">${h}</b>`).join(""); }
+dieEl.addEventListener("click",roll);
+dieEl.addEventListener("keydown",e=>{ if(e.key===" "||e.key==="Enter"){e.preventDefault();roll();}});
+rollBtn.addEventListener("click",roll);
+const chipsEl=document.getElementById("chips");
+function renderChips(){
+  chipsEl.innerHTML="";
+  for(const [k,label] of CHIP_DEFS){
+    const s=SRC[k]; let cls="chip";
+    const on=s.userEnabled&&(k==="csprng"||s.state==="on");
+    if(s.state==="unsupported") cls+=" na";
+    else if(on) cls+=" on";
+    else if(s.state==="denied") cls+=" denied";
+    const el=document.createElement(s.state==="unsupported"?"span":"button");
+    el.className=cls; el.type="button"; el.innerHTML='<span class="cdot"></span>'+label;
+    if(s.state!=="unsupported"){
+      el.setAttribute("aria-pressed",on?"true":"false");
+      el.addEventListener("click",()=>toggleSource(k));
+    }
+    chipsEl.appendChild(el);
+  }
+}
+const sourcesEl=document.getElementById("sources");
+function renderSources(){
+  const order=["csprng","camera","mic","motion","input"];
+  sourcesEl.innerHTML="";
+  for(const k of order){
+    const s=SRC[k];
+    const inMix=s.mixable && s.userEnabled && (k==="csprng"||s.state==="on");
+    const faulted=inMix && (s.rctFail||s.aptFail);
+    const cls=inMix?(faulted?"fault":"on"):"";
+    let statTxt, statCls;
+    if(s.state==="unsupported"){ statTxt="N/A"; statCls="na"; }
+    else if(s.state==="denied"){ statTxt="DENIED"; statCls="fault"; }
+    else if(inMix){ statTxt=faulted?"CHECK":"ACTIVE"; statCls=faulted?"fault":"on"; }
+    else if(!s.mixable && s.state==="on"){ statTxt="OBSERVING"; statCls="na"; }
+    else { statTxt="OFF"; statCls="na"; }
+    let action="";
+    if(s.mixable){
+      if(s.state==="unsupported"){ action='<div class="act-note">ไม่รองรับบนอุปกรณ์นี้</div>'; }
+      else if(inMix){ action='<div class="src-act"><button class="act-btn off" data-tog="'+k+'">เอาออกจากมิกซ์ / disable</button></div>'; }
+      else { action='<div class="src-act"><button class="act-btn" data-tog="'+k+'">เพิ่มเข้ามิกซ์ / enable</button></div>'; }
+    } else { action='<div class="act-note">display only · ไม่เข้ามิกซ์</div>'; }
+    const el=document.createElement("div"); el.className="src "+cls;
+    el.innerHTML=
+      '<div class="src-top"><div class="src-name">'+s.name+
+        '<small>'+(inMix?'<span class="mixtag">IN MIX</span>':'')+s.sub+'</small></div>'+
+        '<span class="stat '+statCls+'">'+statTxt+'</span></div>'+
+      '<div class="meter"><div class="lbl"><span>min-entropy</span><span class="v" id="he_'+k+'">–</span></div><div class="bar amber"><i id="hb_'+k+'"></i></div></div>'+
+      '<div class="meter"><div class="lbl"><span>activity</span><span class="v" id="ae_'+k+'">–</span></div><div class="bar"><i id="ab_'+k+'"></i></div></div>'+
+      '<div class="health"><div class="lamp" id="rct_'+k+'">RCT</div><div class="lamp" id="apt_'+k+'">APT</div></div>'+
+      action;
+    sourcesEl.appendChild(el);
+  }
+  sourcesEl.querySelectorAll("[data-tog]").forEach(b=>b.addEventListener("click",()=>toggleSource(b.dataset.tog)));
+}
+function refreshMeters(){
+  for(const k in SRC){
+    const s=SRC[k]; s.recompute();
+    const he=document.getElementById("he_"+k); if(!he) continue;
+    const hb=document.getElementById("hb_"+k),ae=document.getElementById("ae_"+k),ab=document.getElementById("ab_"+k);
+    const rct=document.getElementById("rct_"+k),apt=document.getElementById("apt_"+k);
+    const live=(s.state==="on");
+    if(live){
+      he.textContent=s.hmin.toFixed(2)+" b"; hb.style.width=(s.hmin/8*100).toFixed(0)+"%";
+      ae.textContent=(s.activity*100).toFixed(0)+"%"; ab.style.width=(s.activity*100).toFixed(0)+"%";
+      rct.className="lamp "+(s.rctFail?"fail":"pass"); apt.className="lamp "+(s.aptFail?"fail":"pass");
+    }else{ he.textContent="–"; hb.style.width="0%"; ae.textContent="–"; ab.style.width="0%"; rct.className="lamp"; apt.className="lamp"; }
+  }
+}
+setInterval(refreshMeters,220);
+const drawer=document.getElementById("drawer"),dToggle=document.getElementById("drawerToggle");
+dToggle.addEventListener("click",()=>{ const open=drawer.classList.toggle("open"); dToggle.setAttribute("aria-expanded",open?"true":"false"); });
+const stRead=document.getElementById("stRead"); let stTimer=null;
+document.querySelectorAll(".st-row button").forEach(b=>b.addEventListener("click",()=>{
+  const k=b.dataset.st,s=SRC[k];
+  if(s.state!=="on"){ stRead.innerHTML='source <b>'+s.name+'</b> ยังไม่ active — ติ๊กเลือกก่อน'; return; }
+  if(stTimer)clearInterval(stTimer);
+  stTimer=setInterval(()=>{ const act=(s.activity*100).toFixed(0);
+    const bar="█".repeat(clamp(Math.round(s.activity*20),0,20)).padEnd(20,"░");
+    stRead.innerHTML='<b>'+s.name+'</b> ACTIVITY ['+bar+'] '+act+'% · min-ent '+s.hmin.toFixed(2)+'b'; },120);
+}));
+renderChips(); renderSources(); dieNum.textContent="·";
+</script>
+</body>
+</html>
