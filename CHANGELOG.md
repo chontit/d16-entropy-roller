@@ -8,6 +8,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 ---
 
+## [1.0.1] — 2026-09-17
+
+### Changed / เปลี่ยน
+- **Shake-to-roll threshold raised** (14 → 25) so only a firm, deliberate shake triggers a roll — prevents accidental rolls from small movements.
+  **เพิ่มเกณฑ์ shake-to-roll** (14 → 25) ต้องเขย่าแรงและตั้งใจจริงถึงจะทอย กันการทอยพลาดจากการขยับเล็กน้อย
+
+### Added / เพิ่ม
+- **Shake-to-roll on/off toggle** on the main screen (shown on motion-capable devices), independent of the Motion entropy source — turn shake off while still using motion noise in the mix. Turning it on ensures the motion listener is running.
+  **ปุ่ม toggle เปิด/ปิด shake-to-roll** บนหน้าหลัก (แสดงบนอุปกรณ์ที่มี motion) แยกอิสระจาก Motion entropy source — ปิดการเขย่าได้โดยยังใช้ motion noise ในมิกซ์ต่อ
+- **Pipeline flowchart** added to the in-tool *How it works* section — shows sources → XOR pool → SHA-256 → D16 roll.
+  **เพิ่ม flowchart แผนผังระบบ** ในหัวข้อ *How it works* ของตัว tool — แสดง sources → XOR pool → SHA-256 → ผล D16
+
+---
+
 ## [1.0.0] — 2026-09-16
 
 Initial public release. / รีลีสสาธารณะครั้งแรก
@@ -48,4 +62,5 @@ Initial public release. / รีลีสสาธารณะครั้งแ
 - No network activity of any kind; no external scripts, fonts, or analytics.
   ไม่มี network activity ใด ๆ ไม่มี script/font/analytics ภายนอก
 
+[1.0.1]: https://github.com/<your-username>/d16-entropy-roller/releases/tag/v1.0.1
 [1.0.0]: https://github.com/<your-username>/d16-entropy-roller/releases/tag/v1.0.0

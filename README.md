@@ -11,7 +11,7 @@
   <img alt="single-file" src="https://img.shields.io/badge/build-single--file%20HTML-34e2d0">
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-34e2d0">
   <img alt="pgp" src="https://img.shields.io/badge/releases-PGP%20signed-f4b13a">
-  <img alt="version" src="https://img.shields.io/badge/version-1.0.0-blue">
+  <img alt="version" src="https://img.shields.io/badge/version-1.0.1-blue">
 </p>
 
 <p align="center"><strong>"Don't Trust, Verify."</strong> — Chollatis Bitcoiner</p>
@@ -49,7 +49,7 @@ There is **no seed step, no wallet step, no export** — dice rolling only, by d
 |---|---|---|
 | 🎲 | **D16 roller with tumble animation** | 16-sided roll with a faceted-gem HUD animation |
 | 🎛️ | **Quick-select entropy chips** | Tap CSPRNG / Cam / Mic / Motion on the main screen to choose which sources feed the mix — no menu needed |
-| 📱 | **Shake-to-roll on mobile** | Shake the device to roll (accelerometer) |
+| 📱 | **Shake-to-roll on mobile** | Shake the device firmly to roll (accelerometer), with an on/off toggle |
 | 🛰️ | **Sensor-fused entropy** | Mixes only the selected sources: CSPRNG ⊕ camera ⊕ mic ⊕ motion, via SHA-256 |
 | 🔬 | **Live source panel** | See each source's state (`ACTIVE / DENIED / OFF / N/A`) and `IN MIX` in real time |
 | 📊 | **Health indicators** | min-entropy (bits/byte), RCT, APT per source |
@@ -77,6 +77,19 @@ open d16-entropy-roller.html          # macOS
 For maximum isolation, copy the file to an air-gapped machine (e.g. Tails OS) and open it there. No internet connection is ever required or used.
 
 ### How it works
+
+**Pipeline overview:**
+
+```mermaid
+flowchart TD
+    A["Audio · mic<br/>LSB noise"] --> P
+    C["Camera<br/>frame-diff LSB"] --> P
+    M["Motion · accel/gyro<br/>while shaking"] --> P
+    R["CSPRNG baseline<br/>getRandomValues()"] --> P
+    P["⊕ XOR pool<br/>mix selected LSBs"] --> H
+    H["SHA-256 extractor<br/>mask 0x0F · hash-chain"] --> O
+    O["D16 roll 0–F<br/>simulator · no seed"]
+```
 
 On each roll, the tool builds a message from the **selected-source accumulator** XOR-ed with a fresh CSPRNG draw (when CSPRNG is selected), plus a monotonic counter and a high-resolution timestamp. It hashes that with SHA-256 and takes the **low nibble** of the first output byte:
 
@@ -210,7 +223,7 @@ Released under the **MIT License** — see [LICENSE](LICENSE).
 |---|---|---|
 | 🎲 | **D16 Roller** | ทอย 16 หน้า พร้อม animation แบบ faceted-gem HUD |
 | 🎛️ | **Quick-select chips** | ติ๊กเลือกแหล่งสุ่ม (CSPRNG / Cam / Mic / Motion) เข้ามิกซ์ได้จากหน้าหลัก ไม่ต้องเปิดเมนู |
-| 📱 | **Shake-to-Roll** | เขย่าเครื่องเพื่อทอย (accelerometer) |
+| 📱 | **Shake-to-Roll** | เขย่าเครื่องแรง ๆ เพื่อทอย (accelerometer) พร้อม toggle เปิด/ปิด |
 | 🛰️ | **Sensor-fused entropy** | ผสมเฉพาะแหล่งที่เลือก: CSPRNG ⊕ camera ⊕ mic ⊕ motion ผ่าน SHA-256 |
 | 🔬 | **Live source panel** | รู้สถานะแต่ละแหล่ง (`ACTIVE / DENIED / OFF / N/A`) และ `IN MIX` แบบ real-time |
 | 📊 | **Health indicators** | min-entropy (bits/byte), RCT, APT ต่อแหล่ง |
@@ -238,6 +251,19 @@ open d16-entropy-roller.html          # macOS
 เพื่อความ isolated สูงสุด ก๊อปไฟล์ไปเครื่อง air-gapped (เช่น Tails OS) แล้วเปิดที่นั่น ไม่ต้องต่อเน็ตและไม่มีการต่อเน็ตในทุกกรณี
 
 ### กลไกการทำงาน
+
+**แผนผังระบบ:**
+
+```mermaid
+flowchart TD
+    A["Audio · mic<br/>LSB noise"] --> P
+    C["Camera<br/>frame-diff LSB"] --> P
+    M["Motion · accel/gyro<br/>while shaking"] --> P
+    R["CSPRNG baseline<br/>getRandomValues()"] --> P
+    P["⊕ XOR pool<br/>mix selected LSBs"] --> H
+    H["SHA-256 extractor<br/>mask 0x0F · hash-chain"] --> O
+    O["D16 roll 0–F<br/>simulator · no seed"]
+```
 
 ทุกครั้งที่ทอย เครื่องมือประกอบ message จาก **accumulator ของแหล่งที่เลือก** XOR กับ CSPRNG ชุดใหม่ (เมื่อเลือก CSPRNG) บวก counter และ hi-res timestamp แล้ว hash ด้วย SHA-256 จากนั้นตัด **4 บิตล่าง (low nibble)** ของ byte แรก:
 

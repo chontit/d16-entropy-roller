@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>D16 · Entropy Roller</title>
+<!-- D16 · Entropy Roller — v1.0.1 · Chollatis Bitcoiner · "Don't Trust, Verify." -->
 <style>
   :root{
     --bg:#070b10; --bg2:#0a1018; --panel:#0d151f; --panel2:#101b28;
@@ -78,6 +79,17 @@
   .rollbtn:active{transform:translateY(1px)}
   .rollbtn:focus-visible{outline:2px solid var(--cyan); outline-offset:3px}
   .hint{margin-top:10px; color:var(--muted); font-size:12.5px; min-height:1.2em; text-align:center; padding:0 8px}
+
+  /* shake-to-roll toggle (v1.0.1) */
+  .shake-wrap{margin-top:13px; text-align:center}
+  .shake-toggle{display:inline-flex; align-items:center; gap:9px; font-family:var(--mono); font-size:12px;
+    color:var(--muted); background:var(--panel); border:1px solid var(--edge2); padding:7px 14px; border-radius:999px; cursor:pointer}
+  .shake-toggle .sw{width:30px; height:16px; border-radius:999px; background:#0a121b; border:1px solid var(--edge2); position:relative; transition:.2s; flex-shrink:0}
+  .shake-toggle .sw::after{content:""; position:absolute; top:1px; left:1px; width:12px; height:12px; border-radius:50%; background:var(--faint); transition:.2s}
+  .shake-toggle[aria-checked="true"]{color:var(--cyan); border-color:var(--cyan-dim)}
+  .shake-toggle[aria-checked="true"] .sw{background:rgba(52,226,208,.22); border-color:var(--cyan-dim)}
+  .shake-toggle[aria-checked="true"] .sw::after{left:15px; background:var(--cyan); box-shadow:0 0 8px var(--cyan)}
+  .shake-toggle:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
   .log{margin-top:16px; display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:420px}
   .log b{font-family:var(--mono); font-size:12px; color:var(--muted); font-weight:400;
     border:1px solid var(--edge); padding:3px 7px; border-radius:6px; min-width:26px; text-align:center}
@@ -139,6 +151,19 @@
   .how-body h4{color:var(--amber); font-size:12.5px; font-family:var(--mono); margin:15px 0 6px; font-weight:600}
   .how-body code{font-family:var(--mono); font-size:12px; color:var(--cyan); background:#0a121b; padding:1px 6px; border-radius:5px; border:1px solid var(--edge)}
   .how-body .flow{font-family:var(--mono); font-size:11.5px; color:var(--text); background:#080f16; border:1px solid var(--edge); border-radius:8px; padding:11px 12px; margin:8px 0; overflow-x:auto; white-space:pre}
+  /* pipeline flowchart (v1.0.1) */
+  .fc{width:100%; height:auto; margin:8px 0 4px; display:block}
+  .fc-box{stroke-width:1.2}
+  .fc-src{fill:rgba(52,226,208,.08); stroke:var(--cyan-dim)}
+  .fc-base{fill:rgba(109,130,150,.10); stroke:var(--edge2)}
+  .fc-pool{fill:rgba(244,177,58,.12); stroke:var(--amber-dim)}
+  .fc-proc{fill:var(--panel2); stroke:var(--edge2)}
+  .fc-out{fill:rgba(244,177,58,.16); stroke:var(--amber)}
+  .fc-t{font-weight:700; font-size:15px}
+  .fc-t.cy{fill:var(--cyan)} .fc-t.am{fill:var(--amber-glow)} .fc-t.mu{fill:var(--text)}
+  .fc-s{font-size:12px; fill:var(--muted)}
+  .fc-a{fill:none; stroke:var(--faint); stroke-width:1.6}
+  .fc-ah{fill:var(--faint)}
   .how-body ul{margin:6px 0; padding-left:18px} .how-body li{margin:4px 0}
   .warn{border:1px solid var(--red-dim); background:rgba(255,85,104,.06); border-radius:10px; padding:11px 13px; margin-top:14px; color:var(--text); font-size:12.5px; line-height:1.65}
   .warn b{color:var(--red)}
@@ -185,6 +210,9 @@
       <div class="chips" id="chips"></div>
     </div>
     <button class="rollbtn" id="rollBtn">ROLL &nbsp;/&nbsp; ทอย</button>
+    <div class="shake-wrap" id="shakeWrap" hidden>
+      <button class="shake-toggle" id="shakeToggle" role="switch" aria-checked="true"><span class="sw"></span>เขย่าเพื่อทอย · shake to roll</button>
+    </div>
     <div class="hint" id="hint">ติ๊กเลือกสัญญาณ แล้วแตะลูกเต๋า/กดปุ่ม — บนมือถือ “เขย่า” เพื่อทอยได้</div>
     <div class="log" id="log" aria-label="ประวัติการทอยล่าสุด"></div>
   </div>
@@ -212,6 +240,45 @@
       <div class="how-body">
         <p>เครื่องมือนี้ <b style="color:var(--text)">จำลองการทอย D16 เท่านั้น</b> — ไม่มีขั้นตอนสร้าง seed / กระเป๋าใด ๆ
            ทุกครั้งที่ทอย ผล 0–F มาจากการ “กลั่น” (extract) เฉพาะแหล่งที่คุณ <b style="color:var(--cyan)">ติ๊กเลือก</b> ผ่าน hash แล้วตัด 4 บิตล่างแบบไม่มี bias</p>
+        <h4>แผนผังระบบ / PIPELINE</h4>
+        <svg class="fc" viewBox="0 0 760 600" role="img" aria-label="entropy pipeline flowchart / แผนผัง pipeline">
+          <defs>
+            <marker id="fcArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" class="fc-ah"/>
+            </marker>
+          </defs>
+          <!-- arrows (behind boxes) -->
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M132,96 C132,182 214,214 344,247"/>
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M380,96 L380,245"/>
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M628,96 C628,182 546,214 416,247"/>
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M240,285 L267,285"/>
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M380,322 L380,383"/>
+          <path class="fc-a" marker-end="url(#fcArrow)" d="M380,460 L380,501"/>
+          <!-- source boxes -->
+          <rect class="fc-box fc-src" x="24"  y="24"  width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-src" x="272" y="24"  width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-src" x="520" y="24"  width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-base" x="24"  y="250" width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-pool" x="272" y="250" width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-proc" x="272" y="388" width="216" height="70" rx="12"/>
+          <rect class="fc-box fc-out"  x="272" y="506" width="216" height="70" rx="12"/>
+          <!-- labels -->
+          <text class="fc-t cy" x="132" y="55" text-anchor="middle">Audio (mic)</text>
+          <text class="fc-s"    x="132" y="76" text-anchor="middle">LSB noise</text>
+          <text class="fc-t cy" x="380" y="55" text-anchor="middle">Camera</text>
+          <text class="fc-s"    x="380" y="76" text-anchor="middle">frame-diff LSB</text>
+          <text class="fc-t cy" x="628" y="55" text-anchor="middle">Motion</text>
+          <text class="fc-s"    x="628" y="76" text-anchor="middle">accel/gyro · shaking</text>
+          <text class="fc-t mu" x="132" y="281" text-anchor="middle">CSPRNG baseline</text>
+          <text class="fc-s"    x="132" y="302" text-anchor="middle">getRandomValues()</text>
+          <text class="fc-t am" x="380" y="281" text-anchor="middle">⊕ XOR pool</text>
+          <text class="fc-s"    x="380" y="302" text-anchor="middle">mix selected LSBs</text>
+          <text class="fc-t mu" x="380" y="419" text-anchor="middle">SHA-256 extractor</text>
+          <text class="fc-s"    x="380" y="440" text-anchor="middle">&amp; 0x0F · hash-chain</text>
+          <text class="fc-t am" x="380" y="537" text-anchor="middle">D16 roll (0–F)</text>
+          <text class="fc-s"    x="380" y="558" text-anchor="middle">simulator · no seed</text>
+        </svg>
+        <p style="font-size:12px; color:var(--muted); margin:4px 0 2px">sensor หลายตัวป้อน LSB → XOR รวมกับ CSPRNG baseline → SHA-256 กลั่น (ตัด 4 บิตล่าง + hash-chain) → ผล D16 (0–F) จบที่นี่ ไม่มีขั้น seed / BIP39</p>
         <h4>1. แหล่ง entropy ที่เลือกได้</h4>
         <ul>
           <li><code>CSPRNG</code> — CSPRNG ของระบบ (baseline) สม่ำเสมอ ~100% แต่ verify กระบวนการเองไม่ได้</li>
@@ -351,6 +418,8 @@ function stopMic(){
   SRC.mic.state="na";
 }
 let motionActive=false,motionGotEvent=false,lastMag=null,shakeCooldown=0;
+const SHAKE_THRESHOLD=25;   // v1.0.1: raised from 14 so only a firm shake triggers a roll
+let shakeEnabled=true;      // v1.0.1: shake-to-roll on/off, independent of Motion entropy source
 function motionHandler(ev){
   if(!motionActive) return; motionGotEvent=true; SRC.motion.state="on";
   const a=ev.accelerationIncludingGravity||ev.acceleration; if(!a) return;
@@ -358,7 +427,7 @@ function motionHandler(ev){
   let mag=0;
   for(const v of vals){ if(v==null) continue; SRC.motion.push(Math.round(v*1000)&0xFF); mag+=Math.abs(v); }
   if(lastMag!=null){ const d=Math.abs(mag-lastMag);
-    if(d>14 && shakeCooldown<=0 && !rolling){ shakeCooldown=8; roll(); } }
+    if(shakeEnabled && d>SHAKE_THRESHOLD && shakeCooldown<=0 && !rolling){ shakeCooldown=8; roll(); } }
   lastMag=mag; if(shakeCooldown>0) shakeCooldown--;
 }
 async function enableMotion(){
@@ -530,6 +599,22 @@ document.querySelectorAll(".st-row button").forEach(b=>b.addEventListener("click
     const bar="█".repeat(clamp(Math.round(s.activity*20),0,20)).padEnd(20,"░");
     stRead.innerHTML='<b>'+s.name+'</b> ACTIVITY ['+bar+'] '+act+'% · min-ent '+s.hmin.toFixed(2)+'b'; },120);
 }));
+/* ---------------- shake-to-roll toggle (v1.0.1) ---------------- */
+const shakeWrap=document.getElementById("shakeWrap"), shakeToggle=document.getElementById("shakeToggle");
+if(typeof DeviceMotionEvent!=="undefined") shakeWrap.hidden=false;
+shakeToggle.setAttribute("aria-checked", shakeEnabled?"true":"false");
+shakeToggle.addEventListener("click",()=>{
+  shakeEnabled=!shakeEnabled;
+  shakeToggle.setAttribute("aria-checked", shakeEnabled?"true":"false");
+  if(shakeEnabled){
+    // make sure the motion listener is running so a shake can fire
+    if(SRC.motion.state!=="on" && SRC.motion.state!=="unsupported") setSourceEnabled("motion", true);
+    flashHint("เขย่าเพื่อทอย: เปิด · shake-to-roll ON");
+  } else {
+    flashHint("เขย่าเพื่อทอย: ปิด · shake-to-roll OFF");
+  }
+});
+
 renderChips(); renderSources(); dieNum.textContent="·";
 </script>
 </body>
